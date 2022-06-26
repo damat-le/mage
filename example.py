@@ -1,7 +1,7 @@
 import imageio
 from tabulate import tabulate
 # If tabulate is not installed, execute 
-# `pip install tabulate`
+# `pip install tabulate imageio`
 
 def log_iteration(history, obs, actions, dones):
     for idx, agent_pos_xy in enumerate(obs):

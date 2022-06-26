@@ -1,4 +1,4 @@
-# Simple Multi-Agent Grid Environment
+# Simple Multi-Agent Gridworld Environment
 
 ![](img/movie.gif)
 
@@ -25,6 +25,7 @@ Note that, currently no reward mechanism is implemented in the environment but i
 
 ## Installation
 
+<!---
 To install SimpleGrid, you can either use pip
 
 ```bash
@@ -32,6 +33,15 @@ pip install gym-simplemultigrid
 ```
 
 or you can clone the repository and run an editable installation
+
+```bash
+git clone https://github.com/damat-le/gym-simplemultigrid.git
+cd gym-simplemultigrid
+pip install -e .
+```
+--->
+
+Currently, only editable installation is supported:
 
 ```bash
 git clone https://github.com/damat-le/gym-simplemultigrid.git
