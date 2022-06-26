@@ -2,3 +2,5 @@ helper.ipynb
 __pycache__
 .vscode
 log
+img
+.DS_Store

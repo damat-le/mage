@@ -1,9 +1,10 @@
+from __future__ import annotations
 import numpy as np
 from gym_smg.window import Window
 import gym_smg.rendering as r
 
 MAPS = {
-    "4x4": ["EEEE", "EWEW", "EEEW", "WEEE"],
+    "4x4": ["0000", "0101", "0001", "1000"],
     "8x8": [
         "00000000",
         "00000000",
@@ -17,7 +18,23 @@ MAPS = {
 }
 
 class SMGEnv:
+    """
+    Simple Multi-Agent Grid Environment
 
+    The environment is a grid with obstacles (walls) and agents. The agents can move in one of the four cardinal directions. If they try to move over an obstacle or out of the grid bounds, they stay in place. Each agent has a unique color and a goal state of the same color. The environment is episodic, i.e. the episode ends when all agents reach their goals.
+
+    To initialise the grid, the user must decide where to put the walls on the grid. This can bee done by either passing a map name or a custom map. If a map name is passed, the map is loaded from a set of pre-existing maps. The names of the available pre-existing maps are "4x4" and "8x8". Conversely, If a custom map is passed, the map provided by the user is parsed and loaded. The map must be a list of strings, where each string denotes a row of the grid and is a sequence of 0s and 1s, where 0 denotes a free cell and 1 denotes a wall cell. An example of a 4x4 map is the following:
+    ["0000", 
+     "0101", 
+     "0001", 
+     "1000"]
+
+    The user must also decide the number of agents and their starting and goal positions on the grid. This can be done by passing two lists of tuples, namely `starts_xy` and `goals_xy`, where each tuple is a pair of coordinates (x, y) representing the agent starting/goal position. 
+
+    Currently, the user must also define the color of each agent. This can be done by passing a list of strings, where each string is a color name. The available color names are: red, green, blue, purple, yellow, grey and black. This requirement will be removed in the future and the color will be assigned automatically.
+
+    The user can also decide whether the agents disappear when they reach their goal. This can be done by passing a boolean value to `disappear_on_goal`. If `disappear_on_goal` is True, the agent disappears when it reaches its goal. If `disappear_on_goal` is False, the agent remains on the grid after it reaches its goal. This feature is currently not implemented and will be added in future versions.
+    """
     FREE: int = 0
     OBSTACLE: int = 1
     MOVES: dict[int,tuple] = {
@@ -34,10 +51,32 @@ class SMGEnv:
         starts_xy: list[tuple] = None,
         goals_xy: list[tuple] = None,
         agents_colors: list[str] = None,
-        disappear_on_goal: bool = True,
+        disappear_on_goal: bool = None,
         map_name: str = None,
         custom_map: list[str] = None,
     ):
+        """
+        Initialise the environment.
+
+        Parameters
+        ----------
+        seed: Optional[int]
+            Random seed.
+        num_agents: int
+            Number of agents.
+        starts_xy: list[tuple]
+            List of starting (x,y) positions of the agents.
+        goals_xy: list[tuple]
+            List of goal (x,y) positions of the agents. The order of the goals must match the order of the starts positions.
+        agents_colors: list[str]
+            List of colors of the agents. The available color names are: red, green, blue, purple, yellow, grey and black. The same colors will be assigned to the respective goal states on the grid.
+        disappear_on_goal: bool
+            Whether the agents disappear when they reach their goal. This feature is not implemented yet.
+        map_name: str
+            Name of the map to be loaded.
+        custom_map: list[str]
+            Custom map to be loaded. Must be a list of strings, where each string denotes a row of the grid and is a sequence of 0s and 1s, where 0 denotes a free cell and 1 denotes a wall cell.
+        """
         # Grid confinguration
         self.n_agents = num_agents
         self.starts_xy = starts_xy
@@ -100,8 +139,6 @@ class SMGEnv:
         Initialise the positions of the agents.
 
         The output of this funtion is np.ndarray with the same shape as the grid. Each element of the array is 0, except for the elements corresponding to the agent positions that contain 1.
-
-        TODO: add check on initial positions, they must not overlap with obstacles
         """
         positions = np.zeros(self.obstacles.shape, dtype=int)
         for x,y in self.starts_xy:
@@ -125,7 +162,7 @@ class SMGEnv:
 
     def on_goal(self, agent_idx: int) -> bool:
         """
-        Check if the agent is on the goal.
+        Check if the agent is on its own goal.
         """
         return self.agents_pos_xy[agent_idx] == self.goals_xy[agent_idx]
 
@@ -138,13 +175,13 @@ class SMGEnv:
     
     def is_in_bounds(self, row: int, col: int) -> bool:
         """
-        Check if a cell is in bounds.
+        Check if a target cell is in the grid bounds.
         """
         return 0 <= row < self.nrow and 0 <= col < self.ncol
 
     def move(self, agent_idx: int, action: int) -> None:
         """
-        Move the agent in the given direction.
+        Move the agent according to the selected action.
         """
         #assert action in self.action_space
 
@@ -253,12 +290,14 @@ class SMGEnv:
             width_min = y * tile_size
             width_max = (y+1) * tile_size
             img[height_min:height_max, width_min:width_max, :] = tile_img
-            
+
         if not self.window:
             self.window = Window('my_custom_env')
             self.window.show(block=False)
         self.window.show_img(img, self.fps)
 
+        return img
+        
     def render_tile(
         self,
         obj: r.WorldObj,
@@ -304,34 +343,35 @@ class SMGEnv:
         """
         Produce a compact numpy encoding of the grid
         """
-        width = self.ncol
-        height = self.nrow
+    #     width = self.ncol
+    #     height = self.nrow
 
-        if vis_mask is None:
-            vis_mask = np.ones((width, height), dtype=bool)
+    #     if vis_mask is None:
+    #         vis_mask = np.ones((width, height), dtype=bool)
 
-        array = np.zeros((width, height, 3), dtype='uint8')
+    #     array = np.zeros((width, height, 3), dtype='uint8')
 
-        for i in range(width):
-            for j in range(height):
-                if vis_mask[i, j]:
-                    v = self.get(i, j)
+    #     for i in range(width):
+    #         for j in range(height):
+    #             if vis_mask[i, j]:
+    #                 v = self.get(i, j)
 
-                    if v is None:
-                        array[i, j, 0] = r.OBJECT_TO_IDX['empty']
-                        array[i, j, 1] = 0
-                        array[i, j, 2] = 0
+    #                 if v is None:
+    #                     array[i, j, 0] = r.OBJECT_TO_IDX['empty']
+    #                     array[i, j, 1] = 0
+    #                     array[i, j, 2] = 0
 
-                    else:
-                        array[i, j, :] = v.encode()
+    #                 else:
+    #                     array[i, j, :] = v.encode()
 
-        return array
+    #     return array
+        pass
 
-    # @staticmethod
-    # def decode(array):
-    #     """
-    #     Decode an array grid encoding back into a grid
-    #     """
+    @staticmethod
+    def decode(array):
+        """
+        Decode an array grid encoding back into a grid
+        """
 
     #     width, height, channels = array.shape
     #     assert channels == 3
@@ -347,3 +387,4 @@ class SMGEnv:
     #             vis_mask[i, j] = (type_idx != OBJECT_TO_IDX['unseen'])
 
     #     return grid, vis_mask
+        pass

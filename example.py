@@ -1,4 +1,6 @@
 from tabulate import tabulate
+# If tabulate is not installed, execute 
+# `pip install tabulate`
 
 def log_iteration(history, obs, actions, dones):
     for idx, agent_pos_xy in enumerate(obs):
@@ -45,7 +47,7 @@ if __name__=='__main__':
     # Instantiate environment from problem instance
     env = SMGEnv(
         num_agents=3,
-        starts_xy=[(0, 0), (0, 7), (1,3)],
+        starts_xy=[(0, 0), (0, 5), (1,3)],
         goals_xy=[(4, 0), (4, 7), (1,7)],
         agents_colors=['yellow', 'blue', 'green'],
         disappear_on_goal=True,
@@ -57,7 +59,7 @@ if __name__=='__main__':
     logger.info("Running action-perception loop...")
     history = {f"A{i}":[] for i in range(env.n_agents)}
 
-    for t in range(1200):
+    for t in range(200):
         env.render()
 
         actions = [random.choice(range(5)) for _ in range(env.n_agents)]
