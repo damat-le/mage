@@ -1,5 +1,3 @@
-from gym_smg import SMGEnv
-
 from gym.envs.registration import register
 
 register(

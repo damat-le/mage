@@ -1,5 +1,7 @@
 # Simple Multi-Agent Grid Environment
 
+![](img/movie.gif)
+
 ## Introduction
 
 The environment is a grid with obstacles (walls) and agents. The agents can move in one of the four cardinal directions. If they try to move over an obstacle or out of the grid bounds, they stay in place. Each agent has a unique color and a goal state of the same color. The environment is episodic, i.e. the episode ends when all agents reach their goals.

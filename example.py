@@ -1,3 +1,4 @@
+import imageio
 from tabulate import tabulate
 # If tabulate is not installed, execute 
 # `pip install tabulate`
@@ -21,6 +22,9 @@ def log_history(history):
     with open(f'log/{FOLDER_NAME}/actionPerceptionLoop.txt', 'w') as f:
         f.write(t)
     return None
+
+def create_gif(frames):
+    imageio.mimsave(f'log/{FOLDER_NAME}/movie.gif', frames)
 
 if __name__=='__main__':
     import logging, os, sys
@@ -59,8 +63,11 @@ if __name__=='__main__':
     logger.info("Running action-perception loop...")
     history = {f"A{i}":[] for i in range(env.n_agents)}
 
-    for t in range(200):
-        env.render()
+    frames = []
+
+    for t in range(100):
+        img = env.render()
+        frames.append(img)
 
         actions = [random.choice(range(5)) for _ in range(env.n_agents)]
         log_iteration(history, obs, actions, dones)
@@ -73,4 +80,6 @@ if __name__=='__main__':
 
     log_history(history)
     env.close()
+    create_gif(frames)
+    logger.info("...done")
     logger.info("-------------END-------------")
