@@ -1,4 +1,6 @@
 import numpy as np
+from gym_smg.window import Window
+import gym_smg.rendering as r
 
 MAPS = {
     "4x4": ["EEEE", "EWEW", "EEEW", "WEEE"],
@@ -31,6 +33,7 @@ class SMGEnv:
         num_agents: int = None,
         starts_xy: list[tuple] = None,
         goals_xy: list[tuple] = None,
+        agents_colors: list[str] = None,
         disappear_on_goal: bool = True,
         map_name: str = None,
         custom_map: list[str] = None,
@@ -54,6 +57,12 @@ class SMGEnv:
         self.agents_pos_xy = starts_xy
         self.dones = [self.on_goal for _ in range(self.n_agents)]
         self.infos = None
+
+        # Rendering configuration
+        self.window = None
+        self.agents_color = agents_colors
+        self.tile_cache = {}
+        self.fps = 10
 
     def parse_map(self) -> np.ndarray:
         """
@@ -148,7 +157,7 @@ class SMGEnv:
         target_col = col + dy
 
         # Check if the move is valid
-        if not self.dones[agent_idx] and self.is_free(target_row, target_col) and self.is_in_bounds(target_row, target_col):
+        if not self.dones[agent_idx] and self.is_in_bounds(target_row, target_col) and self.is_free(target_row, target_col):
             self.positions[row, col] = self.FREE
             self.positions[target_row, target_col] = self.OBSTACLE
             self.agents_pos_xy[agent_idx] = (target_row, target_col)
@@ -172,3 +181,169 @@ class SMGEnv:
         self.dones = [self.on_goal(agent_idx) for agent_idx in range(self.n_agents)]
         self.infos = None
         return self.agents_pos_xy, self.dones, self.infos
+
+    def close(self):
+        """
+        Close the environment.
+        """
+        if self.window:
+            self.window.close()
+        return None
+
+    def render(self, mode='human'):
+        """
+        Render the environment.
+        """
+        if mode == "human":
+            return self.render_gui()
+        else:
+            raise ValueError(f"Unsupported rendering mode {mode}")
+    
+    def render_gui(self, tile_size=r.TILE_PIXELS, highlight_mask=None):
+        """
+        @NOTE: Once again, if agent position is (x,y) then, to properly 
+        render it, we have to pass (y,x) to the grid.render method.
+
+        tile_size: tile size in pixels
+        """
+        width = self.ncol
+        height = self.nrow
+
+        if highlight_mask is None:
+            highlight_mask = np.zeros(shape=(width, height), dtype=bool)
+
+        # Compute the total grid size
+        width_px = width * tile_size
+        height_px = height * tile_size
+
+        img = np.zeros(shape=(height_px, width_px, 3), dtype=np.uint8)
+
+        # Render grid with obstacles
+        for x in range(self.nrow):
+            for y in range(self.ncol):
+                if self.obstacles[x,y] == self.OBSTACLE:
+                    cell = r.Wall(color='black')
+                    tile_img = self.render_tile(cell, tile_size=tile_size)
+                else:
+                    cell = None
+                    tile_img = self.render_tile(cell, tile_size=tile_size)
+
+                height_min = x * tile_size
+                height_max = (x+1) * tile_size
+                width_min = y * tile_size
+                width_max = (y+1) * tile_size
+                img[height_min:height_max, width_min:width_max, :] = tile_img
+
+        # Render goals
+        for agent_idx, (x, y) in enumerate(self.goals_xy):
+            cell = r.Goal(color=self.agents_color[agent_idx])
+            tile_img = self.render_tile(cell, tile_size=tile_size)
+            height_min = x * tile_size
+            height_max = (x+1) * tile_size
+            width_min = y * tile_size
+            width_max = (y+1) * tile_size
+            img[height_min:height_max, width_min:width_max, :] = tile_img
+
+        # Render agents
+        for agent_idx, (x, y) in enumerate(self.agents_pos_xy):
+            cell = r.Agent(color=self.agents_color[agent_idx])
+            tile_img = self.render_tile(cell, tile_size=tile_size)
+            height_min = x * tile_size
+            height_max = (x+1) * tile_size
+            width_min = y * tile_size
+            width_max = (y+1) * tile_size
+            img[height_min:height_max, width_min:width_max, :] = tile_img
+            
+        if not self.window:
+            self.window = Window('my_custom_env')
+            self.window.show(block=False)
+        self.window.show_img(img, self.fps)
+
+    def render_tile(
+        self,
+        obj: r.WorldObj,
+        highlight=False,
+        tile_size=r.TILE_PIXELS,
+        subdivs=3
+    ):
+        """
+        Render a tile and cache the result
+        """
+
+        # Hash map lookup key for the cache
+        if not isinstance(obj, r.Agent):
+            key = (None, highlight, tile_size)
+            key = obj.encode() + key if obj else key
+
+            if key in self.tile_cache:
+                return self.tile_cache[key]
+
+        img = np.zeros(shape=(tile_size * subdivs, tile_size * subdivs, 3), dtype=np.uint8) + 255
+
+        if obj != None:
+            obj.render(img)
+
+        # Highlight the cell if needed
+        if highlight:
+            r.highlight_img(img)
+
+        # Draw the grid lines (top and left edges)
+        r.fill_coords(img, r.point_in_rect(0, 0.031, 0, 1), (170, 170, 170))
+        r.fill_coords(img, r.point_in_rect(0, 1, 0, 0.031), (170, 170, 170))
+
+        # Downsample the image to perform supersampling/anti-aliasing
+        img = r.downsample(img, subdivs)
+
+        # Cache the rendered tile
+        if not isinstance(obj, r.Agent):
+            self.tile_cache[key] = img
+
+        return img
+
+    def encode(self, vis_mask=None):
+        """
+        Produce a compact numpy encoding of the grid
+        """
+        width = self.ncol
+        height = self.nrow
+
+        if vis_mask is None:
+            vis_mask = np.ones((width, height), dtype=bool)
+
+        array = np.zeros((width, height, 3), dtype='uint8')
+
+        for i in range(width):
+            for j in range(height):
+                if vis_mask[i, j]:
+                    v = self.get(i, j)
+
+                    if v is None:
+                        array[i, j, 0] = r.OBJECT_TO_IDX['empty']
+                        array[i, j, 1] = 0
+                        array[i, j, 2] = 0
+
+                    else:
+                        array[i, j, :] = v.encode()
+
+        return array
+
+    # @staticmethod
+    # def decode(array):
+    #     """
+    #     Decode an array grid encoding back into a grid
+    #     """
+
+    #     width, height, channels = array.shape
+    #     assert channels == 3
+
+    #     vis_mask = np.ones(shape=(width, height), dtype=bool)
+
+    #     grid = SimpleGrid(width, height)
+    #     for i in range(width):
+    #         for j in range(height):
+    #             type_idx, color_idx, state = array[i, j]
+    #             v = WorldObj.decode(type_idx, color_idx, state)
+    #             grid.set(i, j, v)
+    #             vis_mask[i, j] = (type_idx != OBJECT_TO_IDX['unseen'])
+
+    #     return grid, vis_mask
