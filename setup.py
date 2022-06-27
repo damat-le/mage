@@ -4,14 +4,14 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(
-    name='gym_smg',
+    name='mage',
     version='0.1.0',
     keywords='reinforcement learning, environment, gridworld, agent, rl, openaigym, openai-gym, gym, multi-agent',
-    url='https://github.com/damat-le/gym-smg',
-    description='Simple Multi-Agent Gridworld Environment',
+    url='https://github.com/damat-le/mage',
+    description='Multi-Agent Grid Environment',
     long_description=long_description,
     long_description_content_type="text/markdown",
-    packages=['gym_smg'],
+    packages=['mage'],
     install_requires=[
         'numpy',
         'matplotlib'

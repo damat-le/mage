@@ -1,6 +1,7 @@
 import imageio
 from tabulate import tabulate
-# If tabulate is not installed, execute 
+# To run this example, you need tabulate or imageio.
+# You can install them with pip:
 # `pip install tabulate imageio`
 
 def log_iteration(history, obs, actions, dones):
@@ -28,7 +29,7 @@ def create_gif(frames):
 
 if __name__=='__main__':
     import logging, os, sys
-    from gym_smg.env import SMGEnv
+    from mage.env import MAGE
     from datetime import datetime as dt
     import random
 
@@ -49,7 +50,7 @@ if __name__=='__main__':
 
     logger.info("-------------START-------------")
     # Instantiate environment from problem instance
-    env = SMGEnv(
+    env = MAGE(
         num_agents=3,
         starts_xy=[(0, 0), (0, 5), (1,3)],
         goals_xy=[(4, 0), (4, 7), (1,7)],

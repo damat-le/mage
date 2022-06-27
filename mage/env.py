@@ -1,7 +1,7 @@
 from __future__ import annotations
 import numpy as np
-from gym_smg.window import Window
-import gym_smg.rendering as r
+from mage.window import Window
+import mage.rendering as r
 
 MAPS = {
     "4x4": ["0000", "0101", "0001", "1000"],
@@ -17,7 +17,7 @@ MAPS = {
     ],
 }
 
-class SMGEnv:
+class MAGE:
     """
     Simple Multi-Agent Grid Environment
 

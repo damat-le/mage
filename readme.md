@@ -1,10 +1,20 @@
-# Simple Multi-Agent Gridworld Environment
+# MAGE: Multi-Agent Grid Environment
 
 ![](img/movie.gif)
 
+## Disclaimer
+
+The project is under development. In the future releases, the following features will be added:
+
+- add reward mechanism for RL tasks
+- add gym/PettingZoo integration
+- add the random generation of maps
+- add the disappear-on-goal feature
+- prepare the project to be uploaded on PyPI
+
 ## Introduction
 
-The environment is a grid with obstacles (walls) and agents. The agents can move in one of the four cardinal directions. If they try to move over an obstacle or out of the grid bounds, they stay in place. Each agent has a unique color and a goal state of the same color. The environment is episodic, i.e. the episode ends when all agents reach their goals.
+MAGE is a grid-based environment with obstacles (walls) and agents. The agents can move in one of the four cardinal directions. If they try to move over an obstacle or out of the grid bounds, they stay in place. Each agent has a unique color and a goal state of the same color. The environment is episodic, i.e. the episode ends when all agents reach their goals.
 
 To initialise the grid, the user must decide where to put the walls on the grid. This can bee done by either passing a map name or a custom map. If a map name is passed, the map is loaded from a set of pre-existing maps. The names of the available pre-existing maps are "4x4" and "8x8". Conversely, If a custom map is passed, the map provided by the user is parsed and loaded. The map must be a list of strings, where each string denotes a row of the grid and is a sequence of 0s and 1s, where 0 denotes a free cell and 1 denotes a wall cell. An example of a 4x4 map is the following:
 
@@ -44,23 +54,27 @@ pip install -e .
 Currently, only editable installation is supported:
 
 ```bash
-git clone https://github.com/damat-le/gym-simplemultigrid.git
-cd gym-simplemultigrid
+git clone https://github.com/damat-le/mage.git
+cd mage
 pip install -e .
 ```
+
+## Getting Started
+
+An example illustrating how to use MAGE is available in the `example.py` script.
 
 ## Citation
 
 Please use this bibtex if you want to cite this repository in your publications:
 
 ```tex
-@misc{gym_simplemultigrid,
+@misc{mage,
   author = {Leo D'Amato},
-  title = {Simple Multi-Agent Grid Environment for OpenAI Gym},
+  title = {Multi-Agent Grid Environment},
   year = {2022},
   publisher = {GitHub},
   journal = {GitHub repository},
-  howpublished = {\url{https://github.com/damat-le/gym-simplemultigrid}},
+  howpublished = {\url{https://github.com/damat-le/mage}},
 }
 ```
 
