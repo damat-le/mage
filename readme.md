@@ -2,16 +2,6 @@
 
 ![](img/movie.gif)
 
-## Disclaimer
-
-The project is under development. In the future releases, the following features will be added:
-
-- add reward mechanism for RL tasks
-- add gym/PettingZoo integration
-- add the random generation of maps
-- add the disappear-on-goal feature
-- prepare the project to be uploaded on PyPI
-
 ## Introduction
 
 MAGE is a grid-based environment with obstacles (walls) and agents. The agents can move in one of the four cardinal directions. If they try to move over an obstacle or out of the grid bounds, they stay in place. Each agent has a unique color and a goal state of the same color. The environment is episodic, i.e. the episode ends when all agents reach their goals.
@@ -39,14 +29,14 @@ Note that, currently no reward mechanism is implemented in the environment but i
 To install SimpleGrid, you can either use pip
 
 ```bash
-pip install gym-simplemultigrid
+pip install mage
 ```
 
 or you can clone the repository and run an editable installation
 
 ```bash
-git clone https://github.com/damat-le/gym-simplemultigrid.git
-cd gym-simplemultigrid
+git clone https://github.com/damat-le/mage.git
+cd mage
 pip install -e .
 ```
 --->
@@ -77,6 +67,15 @@ Please use this bibtex if you want to cite this repository in your publications:
   howpublished = {\url{https://github.com/damat-le/mage}},
 }
 ```
+## Disclaimer
+
+The project is under development. In the future releases, the following features will be added:
+
+- add reward mechanism for RL tasks
+- add gym/PettingZoo integration
+- add the random generation of maps
+- add the disappear-on-goal feature
+- prepare the project to be uploaded on PyPI
 
 <!---
 ## Getting Started
