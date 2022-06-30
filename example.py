@@ -1,5 +1,6 @@
 import imageio
 from tabulate import tabulate
+
 # To run this example, you need tabulate or imageio.
 # You can install them with pip:
 # `pip install tabulate imageio`
@@ -24,6 +25,9 @@ def log_history(history):
         f.write(t)
     return None
 
+def log_img(t, frame):
+    imageio.imwrite(f'log/{FOLDER_NAME}/img/{t}.png', frame)
+
 def create_gif(frames):
     imageio.mimsave(f'log/{FOLDER_NAME}/movie.gif', frames)
 
@@ -35,7 +39,7 @@ if __name__=='__main__':
 
     # Folder name for the simulation
     FOLDER_NAME = dt.now().strftime('%Y-%m-%d %H:%M:%S')
-    os.makedirs(f"log/{FOLDER_NAME}/")
+    os.makedirs(f"log/{FOLDER_NAME}/img")
 
     # Logger to have feedback on the console and on a file
     logging.basicConfig(
@@ -66,8 +70,9 @@ if __name__=='__main__':
 
     frames = []
 
-    for t in range(100):
-        img = env.render()
+    for t in range(50):
+        img = env.render(caption=f"t:{t}")
+        log_img(t, img)
         frames.append(img)
 
         actions = [random.choice(range(5)) for _ in range(env.n_agents)]

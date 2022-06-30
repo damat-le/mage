@@ -227,16 +227,16 @@ class MAGE:
             self.window.close()
         return None
 
-    def render(self, mode='human'):
+    def render(self, caption=None, mode='human'):
         """
         Render the environment.
         """
         if mode == "human":
-            return self.render_gui()
+            return self.render_gui(caption=caption)
         else:
             raise ValueError(f"Unsupported rendering mode {mode}")
     
-    def render_gui(self, tile_size=r.TILE_PIXELS, highlight_mask=None):
+    def render_gui(self, caption, tile_size=r.TILE_PIXELS, highlight_mask=None):
         """
         @NOTE: Once again, if agent position is (x,y) then, to properly 
         render it, we have to pass (y,x) to the grid.render method.
@@ -294,7 +294,7 @@ class MAGE:
         if not self.window:
             self.window = Window('my_custom_env')
             self.window.show(block=False)
-        self.window.show_img(img, self.fps)
+        self.window.show_img(img, caption, self.fps)
 
         return img
         
