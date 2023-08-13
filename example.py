@@ -6,7 +6,7 @@ from tabulate import tabulate
 # `pip install tabulate imageio`
 
 def log_iteration(history, obs, actions, dones):
-    for idx, agent_pos_xy in enumerate(obs):
+    for idx, agent_pos_xy in obs.items():
         history[f'A{idx}'].append((agent_pos_xy, actions[idx], dones[idx]))
     return None
 
@@ -56,26 +56,25 @@ if __name__=='__main__':
     # Instantiate environment from problem instance
     env = MAGE(
         num_agents=3,
-        starts_xy=[(0, 0), (0, 5), (1,3)],
-        goals_xy=[(4, 0), (4, 7), (1,7)],
-        agents_colors=['yellow', 'blue', 'green'],
+        starts_xy={0:(0, 0), 1:(0, 5), 2:(1,3)},
+        goals_xy={0:(4, 0), 1:(4, 7), 2:(1,7)},
+        agents_colors={0:'yellow', 1:'blue', 2:'green'},
         disappear_on_goal=True,
-        map_name="8x8"
+        obstacle_map="8x8"
         )
     obs, dones, _ = env.reset()
-
 
     logger.info("Running action-perception loop...")
     history = {f"A{i}":[] for i in range(env.n_agents)}
 
     frames = []
 
-    for t in range(50):
+    for t in range(500):
         img = env.render(caption=f"t:{t}")
         log_img(t, img)
         frames.append(img)
 
-        actions = [random.choice(range(5)) for _ in range(env.n_agents)]
+        actions = {idx:random.choice(range(5)) for idx in range(env.n_agents)}
         log_iteration(history, obs, actions, dones)
 
         if all(dones):

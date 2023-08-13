@@ -47,13 +47,12 @@ class MAGE:
 
     def __init__(self,     
         #seed: Optional[int] = None,
-        num_agents: int = None,
-        starts_xy: list[tuple] = None,
-        goals_xy: list[tuple] = None,
-        agents_colors: list[str] = None,
-        disappear_on_goal: bool = None,
-        map_name: str = None,
-        custom_map: list[str] = None,
+        num_agents       : int                    = 1,
+        starts_xy        : dict[int,tuple] | None = None,
+        goals_xy         : dict[int,tuple] | None = None,
+        agents_colors    : dict[int,str]   | None = None,
+        disappear_on_goal: bool                   = True,
+        obstacle_map     : str | list[str] | None = None,
     ):
         """
         Initialise the environment.
@@ -82,20 +81,19 @@ class MAGE:
         self.starts_xy = starts_xy
         self.goals_xy = goals_xy
         self.disappear_on_goal = disappear_on_goal
-        self.map_name = map_name
-        self.custom_map = custom_map
+        self.integrity_checks()
 
         # Environment configuration
-        self.obstacles = self.parse_map()
-        self.positions = self.initialise_positions()
+        self.obstacles = self.parse_obstacle_map(obstacle_map) #walls
         self.nrow, self.ncol = self.obstacles.shape
         self.action_space = ...
         self.observation_space = ...
 
         # Agent configuration
-        self.agents_pos_xy = starts_xy
-        self.dones = [self.on_goal for _ in range(self.n_agents)]
-        self.infos = None
+        self.occupancy_map: np.ndarray = np.empty((self.nrow, self.ncol), dtype=int)
+        self.agents_pos_xy: dict[int, tuple] = dict()
+        self.dones: dict[int,bool] = dict()
+        self.infos: dict[int, dict] = dict()
 
         # Rendering configuration
         self.window = None
@@ -103,11 +101,15 @@ class MAGE:
         self.tile_cache = {}
         self.fps = 10
 
-    def parse_map(self) -> np.ndarray:
+    def integrity_checks(self) -> None:
+        # check that the number of agents is the same as the number of starting positions and goals
+        assert self.n_agents == len(self.starts_xy) == len(self.goals_xy), "The number of agents must be the same as the number of starting positions and goals."
+
+    def parse_obstacle_map(self, obstacle_map) -> np.ndarray:
         """
         Initialise the grid.
 
-        The grid is described by a map, i.e. a list of strings where each string dnotes a row of the grid and is a squence of 0s and 1s, where 0 denotes a free cell and 1 denotes a wall cell.
+        The grid is described by a map, i.e. a list of strings where each string denotes a row of the grid and is a sequence of 0s and 1s, where 0 denotes a free cell and 1 denotes a wall cell.
 
         The grid can be initialised by passing a map name or a custom map.
         If a map name is passed, the map is loaded from a set of pre-existing maps. If a custom map is passed, the map provided by the user is parsed and loaded.
@@ -120,33 +122,33 @@ class MAGE:
                [0, 1, 0],
                [0, 1, 1]])
         """
-        if self.custom_map is not None:
-            map_str = np.asarray(self.custom_map, dtype='c')
+        if isinstance(obstacle_map, list):
+            map_str = np.asarray(obstacle_map, dtype='c')
             map_int = np.asarray(map_str, dtype=int)
             return map_int
-        if self.custom_map is None and self.map_name is None:
+        if obstacle_map is None:
             raise ValueError("Either `map` or `map_name` must be provided in grid configuration.")
             #self.custom_map = generate_random_map()
             #return np.asarray(self.custom_map, dtype="c")
-        if self.custom_map is None and self.map_name is not None:
-            self.custom_map = MAPS[self.map_name]
-            map_str = np.asarray(self.custom_map, dtype='c')
+        if isinstance(obstacle_map, str):
+            map_str = MAPS[obstacle_map]
+            map_str = np.asarray(map_str, dtype='c')
             map_int = np.asarray(map_str, dtype=int)
             return map_int
         
-    def initialise_positions(self):
+    def initialise_occupancy_map(self):
         """
         Initialise the positions of the agents.
 
         The output of this funtion is np.ndarray with the same shape as the grid. Each element of the array is 0, except for the elements corresponding to the agent positions that contain 1.
         """
-        positions = np.zeros(self.obstacles.shape, dtype=int)
-        for x,y in self.starts_xy:
+        occupancy_map = self.obstacles.copy()
+        for x,y in self.starts_xy.values():
             if self.obstacles[x,y] == self.FREE:
-                positions[x,y] = self.OBSTACLE
+                occupancy_map[x,y] = self.OBSTACLE
             else:
                 raise ValueError(f"The agent in start position {(x,y)} overlaps with obstacles.")
-        return positions
+        return occupancy_map
 
     def to_s(self, row: int, col: int) -> int:
         """
@@ -170,8 +172,7 @@ class MAGE:
         """
         Check if a cell is free.
         """
-        occupancy_map = self.obstacles + self.positions
-        return occupancy_map[row, col] == self.FREE
+        return self.occupancy_map[row, col] == self.FREE
     
     def is_in_bounds(self, row: int, col: int) -> bool:
         """
@@ -195,28 +196,40 @@ class MAGE:
 
         # Check if the move is valid
         if not self.dones[agent_idx] and self.is_in_bounds(target_row, target_col) and self.is_free(target_row, target_col):
-            self.positions[row, col] = self.FREE
-            self.positions[target_row, target_col] = self.OBSTACLE
+            self.occupancy_map[row, col] = self.FREE
+            self.occupancy_map[target_row, target_col] = self.OBSTACLE
             self.agents_pos_xy[agent_idx] = (target_row, target_col)
             self.dones[agent_idx] = self.on_goal(agent_idx)
         
-    def step(self, actions: list[int]):
+    def step(self, actions: dict[int, int]):
         """
         Take a step in the environment.
         """
-        for agent_idx, action in enumerate(actions):
+        for agent_idx, action in actions.items():
             self.move(agent_idx, action)
 
-        return self.agents_pos_xy, self.dones, self.infos
-
-    def reset(self):
+        return self.observation()
+    
+    def reset(self, starts_xy: dict[int,tuple] = None) -> np.ndarray:
         """
         Reset the environment.
+
+        By deafult, the agents are reset to the starting positions indicated during class initialisation. However, the user can also pass a dict of new starting positions.
         """
-        self.positions = self.initialise_positions()
+        # Update starting positions if needed
+        if starts_xy is not None:
+            self.starts_xy = starts_xy
+        # Reset agents positions
         self.agents_pos_xy = self.starts_xy
-        self.dones = [self.on_goal(agent_idx) for agent_idx in range(self.n_agents)]
-        self.infos = None
+        self.occupancy_map = self.initialise_occupancy_map()
+        # Reset done and info
+        for agent_idx in range(self.n_agents):
+            self.dones[agent_idx] = self.on_goal(agent_idx)
+            self.infos[agent_idx] = {}
+
+        return self.observation()
+    
+    def observation(self) -> tuple:
         return self.agents_pos_xy, self.dones, self.infos
 
     def close(self):
@@ -272,7 +285,7 @@ class MAGE:
                 img[height_min:height_max, width_min:width_max, :] = tile_img
 
         # Render goals
-        for agent_idx, (x, y) in enumerate(self.goals_xy):
+        for agent_idx, (x, y) in self.goals_xy.items():
             cell = r.Goal(color=self.agents_color[agent_idx])
             tile_img = self.render_tile(cell, tile_size=tile_size)
             height_min = x * tile_size
@@ -282,7 +295,7 @@ class MAGE:
             img[height_min:height_max, width_min:width_max, :] = tile_img
 
         # Render agents
-        for agent_idx, (x, y) in enumerate(self.agents_pos_xy):
+        for agent_idx, (x, y) in self.agents_pos_xy.items():
             cell = r.Agent(color=self.agents_color[agent_idx])
             tile_img = self.render_tile(cell, tile_size=tile_size)
             height_min = x * tile_size
