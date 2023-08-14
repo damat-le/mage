@@ -60,8 +60,9 @@ if __name__=='__main__':
         goals_xy={0:(4, 0), 1:(4, 7), 2:(1,7)},
         agents_colors={0:'yellow', 1:'blue', 2:'green'},
         disappear_on_goal=True,
-        obstacle_map="8x8"
-        )
+        obstacle_map="8x8",
+        seed=42
+    )
     obs, dones, _ = env.reset()
 
     logger.info("Running action-perception loop...")
@@ -77,7 +78,7 @@ if __name__=='__main__':
         actions = {idx:random.choice(range(5)) for idx in range(env.n_agents)}
         log_iteration(history, obs, actions, dones)
 
-        if all(dones):
+        if all(dones.values()):
             logger.info(f"...all agents are done at time step {t}")
             break
 

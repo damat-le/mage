@@ -1,7 +1,8 @@
 from __future__ import annotations
+import random
 import numpy as np
-from mage.window import Window
 import mage.rendering as r
+from mage.window import Window
 
 MAPS = {
     "4x4": ["0000", "0101", "0001", "1000"],
@@ -23,7 +24,7 @@ class MAGE:
 
     The environment is a grid with obstacles (walls) and agents. The agents can move in one of the four cardinal directions. If they try to move over an obstacle or out of the grid bounds, they stay in place. Each agent has a unique color and a goal state of the same color. The environment is episodic, i.e. the episode ends when all agents reach their goals.
 
-    To initialise the grid, the user must decide where to put the walls on the grid. This can bee done by either passing a map name or a custom map. If a map name is passed, the map is loaded from a set of pre-existing maps. The names of the available pre-existing maps are "4x4" and "8x8". Conversely, If a custom map is passed, the map provided by the user is parsed and loaded. The map must be a list of strings, where each string denotes a row of the grid and is a sequence of 0s and 1s, where 0 denotes a free cell and 1 denotes a wall cell. An example of a 4x4 map is the following:
+    To initialise the grid, the user must decide where to put the walls on the grid. This can bee done by either selecting an existing map or by passing a custom map. To load an existing map, the name of the map must be passed to the `obstacle_map` argument. Available pre-existing map names are "4x4" and "8x8". Conversely, if to load custom map, the user must provide a map correctly formatted. The map must be passed as a list of strings, where each string denotes a row of the grid and it is composed by a sequence of 0s and 1s, where 0 denotes a free cell and 1 denotes a wall cell. An example of a 4x4 map is the following:
     ["0000", 
      "0101", 
      "0001", 
@@ -38,58 +39,63 @@ class MAGE:
     FREE: int = 0
     OBSTACLE: int = 1
     MOVES: dict[int,tuple] = {
-        0: (0, 0), #STAY
+        0: (0, 0),  #STAY
         1: (-1, 0), #UP
-        2: (1, 0), #DOWN
+        2: (1, 0),  #DOWN
         3: (0, -1), #LEFT
-        4: (0, 1) #RIGHT
+        4: (0, 1)   #RIGHT
     }
 
     def __init__(self,     
         #seed: Optional[int] = None,
-        num_agents       : int                    = 1,
-        starts_xy        : dict[int,tuple] | None = None,
-        goals_xy         : dict[int,tuple] | None = None,
-        agents_colors    : dict[int,str]   | None = None,
-        disappear_on_goal: bool                   = True,
-        obstacle_map     : str | list[str] | None = None,
+        obstacle_map     : str | list[str],
+        num_agents       : int,
+        starts_xy        : dict[int,tuple],
+        goals_xy         : dict[int,tuple],
+        agents_colors    : dict[int,str]  ,
+        disappear_on_goal: bool = True,
+        seed             : int | None = None,       
     ):
         """
         Initialise the environment.
 
         Parameters
         ----------
-        seed: Optional[int]
+        seed: int | None
             Random seed.
         num_agents: int
             Number of agents.
-        starts_xy: list[tuple]
-            List of starting (x,y) positions of the agents.
-        goals_xy: list[tuple]
-            List of goal (x,y) positions of the agents. The order of the goals must match the order of the starts positions.
-        agents_colors: list[str]
-            List of colors of the agents. The available color names are: red, green, blue, purple, yellow, grey and black. The same colors will be assigned to the respective goal states on the grid.
+        starts_xy: dict[int,tuple]
+            Dictionary whose (key, value) pairs consist of an integer agent id (key) and its starting position (value).
+        goals_xy: dict[int,tuple]
+            Dictionary whose (key, value) pairs consist of an integer agent id (key) and its goal position (value).
+        agents_colors: dict[int,tuple]
+            Dictionary whose (key, value) pairs consist of an integer agent id (key) and its color (for rendering). The available color names are: red, green, blue, purple, yellow, grey and black. The same colors will be assigned to the respective goal states on the grid.
         disappear_on_goal: bool
             Whether the agents disappear when they reach their goal. This feature is not implemented yet.
-        map_name: str
-            Name of the map to be loaded.
-        custom_map: list[str]
-            Custom map to be loaded. Must be a list of strings, where each string denotes a row of the grid and is a sequence of 0s and 1s, where 0 denotes a free cell and 1 denotes a wall cell.
+        obstacle_map: str | list[str]
+            Map to be loaded. If a string is passed, the map is loaded from a set of pre-existing maps. The names of the available pre-existing maps are "4x4" and "8x8". If a list of strings is passed, the map provided by the user is parsed and loaded. The map must be a list of strings, where each string denotes a row of the grid and is a sequence of 0s and 1s, where 0 denotes a free cell and 1 denotes a wall cell. 
+            An example of a 4x4 map is the following:
+            ["0000",
+             "0101", 
+             "0001",
+             "1000"]
         """
-        # Grid confinguration
+        self.seed = seed        
+        
+        # Env confinguration
+        self.obstacles = self.parse_obstacle_map(obstacle_map) #walls
+        self.nrow, self.ncol = self.obstacles.shape
+
         self.n_agents = num_agents
         self.starts_xy = starts_xy
         self.goals_xy = goals_xy
         self.disappear_on_goal = disappear_on_goal
-        self.integrity_checks()
 
-        # Environment configuration
-        self.obstacles = self.parse_obstacle_map(obstacle_map) #walls
-        self.nrow, self.ncol = self.obstacles.shape
-        self.action_space = ...
+        self.action_space = list(self.MOVES.keys())
         self.observation_space = ...
 
-        # Agent configuration
+        # internal vars initialised in reset()
         self.occupancy_map: np.ndarray = np.empty((self.nrow, self.ncol), dtype=int)
         self.agents_pos_xy: dict[int, tuple] = dict()
         self.dones: dict[int,bool] = dict()
@@ -97,14 +103,36 @@ class MAGE:
 
         # Rendering configuration
         self.window = None
-        self.agents_color = agents_colors
+        self.agents_colors = agents_colors
         self.tile_cache = {}
         self.fps = 10
 
+    def set_seed(self, seed: int) -> None:
+        """
+        Seed the environment.
+
+        Parameters
+        ----------
+        seed: int
+            Random seed.
+        """
+        np.random.seed(seed)
+        random.seed(seed)
+
     def integrity_checks(self) -> None:
         # check that the number of agents is the same as the number of starting positions and goals
-        assert self.n_agents == len(self.starts_xy) == len(self.goals_xy), "The number of agents must be the same as the number of starting positions and goals."
-
+        if self.starts_xy is not None and self.goals_xy is not None and self.agents_colors is not None:
+            assert self.n_agents == \
+                len(self.starts_xy) == \
+                len(self.goals_xy) == \
+                len(self.agents_colors), \
+                "The number of agents must be the same as the number of starting and goal positions and colors."
+        # check that goals do not overlap with walls
+        if self.goals_xy is not None:
+            for goal in self.goals_xy.values():
+                assert self.obstacles[goal] == self.FREE, \
+                    f"Goal position {goal} overlaps with a wall."
+        
     def parse_obstacle_map(self, obstacle_map) -> np.ndarray:
         """
         Initialise the grid.
@@ -116,8 +144,8 @@ class MAGE:
 
         Examples
         --------
-        >>> map = ["001", "010", "011]
-        >>> SimpleGridEnv.parse_map()
+        >>> my_map = ["001", "010", "011]
+        >>> Mage.parse_obstacle_map(my_map)
         array([[0, 0, 1],
                [0, 1, 0],
                [0, 1, 1]])
@@ -126,15 +154,13 @@ class MAGE:
             map_str = np.asarray(obstacle_map, dtype='c')
             map_int = np.asarray(map_str, dtype=int)
             return map_int
-        if obstacle_map is None:
-            raise ValueError("Either `map` or `map_name` must be provided in grid configuration.")
-            #self.custom_map = generate_random_map()
-            #return np.asarray(self.custom_map, dtype="c")
-        if isinstance(obstacle_map, str):
+        elif isinstance(obstacle_map, str):
             map_str = MAPS[obstacle_map]
             map_str = np.asarray(map_str, dtype='c')
             map_int = np.asarray(map_str, dtype=int)
             return map_int
+        else:
+            raise ValueError(f"You must provide either a map of obstacles or the name of an existing map. Available existing maps are {', '.join(MAPS.keys())}.")
         
     def initialise_occupancy_map(self):
         """
@@ -210,22 +236,23 @@ class MAGE:
 
         return self.observation()
     
-    def reset(self, starts_xy: dict[int,tuple] = None) -> np.ndarray:
+    def reset(self) -> tuple:
         """
         Reset the environment.
 
         By deafult, the agents are reset to the starting positions indicated during class initialisation. However, the user can also pass a dict of new starting positions.
         """
-        # Update starting positions if needed
-        if starts_xy is not None:
-            self.starts_xy = starts_xy
-        # Reset agents positions
+        # Set seed
+        self.set_seed(self.seed)
+        # Reset agents' positions
         self.agents_pos_xy = self.starts_xy
         self.occupancy_map = self.initialise_occupancy_map()
-        # Reset done and info
+        # Reset dones and infos
         for agent_idx in range(self.n_agents):
             self.dones[agent_idx] = self.on_goal(agent_idx)
             self.infos[agent_idx] = {}
+        # Check integrity
+        self.integrity_checks()
 
         return self.observation()
     
@@ -286,7 +313,7 @@ class MAGE:
 
         # Render goals
         for agent_idx, (x, y) in self.goals_xy.items():
-            cell = r.Goal(color=self.agents_color[agent_idx])
+            cell = r.Goal(color=self.agents_colors[agent_idx])
             tile_img = self.render_tile(cell, tile_size=tile_size)
             height_min = x * tile_size
             height_max = (x+1) * tile_size
@@ -296,7 +323,7 @@ class MAGE:
 
         # Render agents
         for agent_idx, (x, y) in self.agents_pos_xy.items():
-            cell = r.Agent(color=self.agents_color[agent_idx])
+            cell = r.Agent(color=self.agents_colors[agent_idx])
             tile_img = self.render_tile(cell, tile_size=tile_size)
             height_min = x * tile_size
             height_max = (x+1) * tile_size
